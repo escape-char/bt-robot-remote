@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+    <Button
+        android:id="@+id/forward"
+        android:layout_width="300dip"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dip"
+        android:text="@string/forward_button"
+        android:layout_centerHorizontal="true"
+        android:background="@drawable/select_nav"/>
+    <Button
+        android:id="@+id/left"
+        android:layout_width="wrap_content"
+        android:layout_height="300dip"
+        android:layout_below="@id/forward"
+        android:text="@string/left_button"
+        android:background="@drawable/select_nav"/>
+    <Button
+        android:id="@+id/right"
+        android:layout_width="wrap_content"
+        android:layout_height="300dip"
+        android:layout_below="@id/forward"
+        android:layout_alignParentRight="true"
+        android:background="@drawable/select_nav"
+        android:text="@string/right_button" />
+    <Button
+        android:id="@+id/bottom"
+        android:layout_marginTop="10dip"
+        android:layout_width="300dip"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/left"
+        android:layout_centerHorizontal="true"
+        android:background="@drawable/select_nav"
+        android:text="@string/bottom_button"/>
+    <TextView
+        android:id="@+id/accel_stats"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:layout_below="@id/bottom"
+        android:text="motion stats will appear here"/>
+    <TextView
+        android:id="@+id/gyro_stats"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:layout_below="@id/accel_stats"
+        android:text=" gyroscope stats will appear here"/>
+    <ToggleButton
+        android:id="@+id/connected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/forward"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="100dip"
+        android:background="@drawable/select_connect"
+        android:textOn="Connected"
+        android:textOff="Disconnected"/>
+</RelativeLayout>

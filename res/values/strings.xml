@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BTRobotRemotActivity</string>
+    <string name="menu_title">Bluetooth Robot Remote</string>
+    <string name="scan_button">Connect</string>
+    <string name="forward_button">Forward</string>
+    <string name="left_button">Left</string>
+    <string name="bottom_button">Backward</string>
+    <string name="right_button">Right</string>
+</resources>
