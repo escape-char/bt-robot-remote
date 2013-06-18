@@ -2,6 +2,7 @@ package edu.esu.spacesys.btrobotremote;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.lang.Math;
+import android.content.Intent;
 
 import android.app.Activity;
 import android.app.ActionBar;
@@ -16,6 +17,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.widget.ToggleButton;
 import android.widget.Toast;
 import android.widget.TextView;
@@ -49,6 +51,12 @@ public class BTRobotRemoteActivity extends Activity
     public static final String TOAST = "toast";
 
     private String mConnectedDeviceName = null;
+
+    // Intent request codes
+    private static final int REQUEST_CONNECT_DEVICE_SECURE = 1;
+    private static final int REQUEST_CONNECT_DEVICE_INSECURE = 2;
+    private static final int REQUEST_ENABLE_BT = 3;
+
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -68,7 +76,7 @@ public class BTRobotRemoteActivity extends Activity
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth is not available", Toast.LENGTH_LONG).show();
-            //finish(); //destroy activity
+            finish(); //destroy activity
         }
     }
     public void setDeviceName(String name){
@@ -85,7 +93,7 @@ public class BTRobotRemoteActivity extends Activity
     public void setupBluetooth(){
         Log.d(TAG, "setupBluetooth()");
         // Initialize the BluetoothChatService to perform bluetooth connections
-        //mClientService = new BluetoothClientService(this, mHandler);
+        if(mClientService == null) mClientService = new BluetoothClientService(this, mHandler);
     }
 
     //called when application is first created and resuming from pause
@@ -96,6 +104,11 @@ public class BTRobotRemoteActivity extends Activity
          super.onResume();
          motionMonitor = new MotionMonitor(this, mHandler);
          motionMonitor.start();
+        // If BT is not on, request that it be enabled.
+        if (!mBluetoothAdapter.isEnabled()) {
+            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+        }
     }
     //called when Options Menu is first created
     @Override
@@ -155,6 +168,24 @@ public class BTRobotRemoteActivity extends Activity
      else{findViewById(R.id.right).setPressed(false);}
   }
   public void setStatus(int status){
+    switch(status){
+        case BluetoothClientService.STATE_CONNECTING:{
+                Toast.makeText(this, "Connecting to remote bluetooth device...", Toast.LENGTH_SHORT).show();
+            break;
+        }
+        case BluetoothClientService.STATE_NONE:{
+                Toast.makeText(this, "Lost Connect with remote bluetooth device...", Toast.LENGTH_SHORT).show();
+                ToggleButton statusButton  = (ToggleButton) this.findViewById(R.id.status_button);
+                statusButton.setChecked(false);
+            break;
+        }
+        case BluetoothClientService.STATE_CONNECTED:{
+                Toast.makeText(this, "Connection established with remote bluetooth device...", Toast.LENGTH_SHORT).show();
+                ToggleButton statusButton  = (ToggleButton) this.findViewById(R.id.status_button);
+                statusButton.setChecked(true);
+            break;
+        }
+    }
   }
   //this is called when status button is clicked
   public void onStatusClicked(View view){
@@ -162,13 +193,53 @@ public class BTRobotRemoteActivity extends Activity
       ToggleButton tb = (ToggleButton) view;
 
       if(tb.isChecked()){
-          Log.i(TAG, "-- ON STATUS CHECKED --");
+         Log.i(TAG, "-- ON STATUS CHECKED --");
+            // Launch the DeviceListActivity to see devices and do scan
+            Intent serverIntent = new Intent(this, DeviceListActivity.class);
+            startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE_INSECURE);
       }
       else{
           Log.i(TAG, "-- ON STATUS UNCHECKED --");
       }
 
-  }
+  }    
+   private void connectToDevice(Intent data, boolean secure){
+        // Get the device MAC address
+        String address = data.getExtras()
+            .getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
+
+        // Get the BluetoothDevice object
+        BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+        // Attempt to connect to the device
+        mClientService.connect(device, secure);
+    }
+    //this method is called once an activity has returned
+    //the activity must have been started with result first
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d(TAG, "onActivityResult " + resultCode);
+        switch (requestCode) {
+        case REQUEST_CONNECT_DEVICE_INSECURE:
+            // When DeviceListActivity returns with a device to connect
+            if (resultCode == Activity.RESULT_OK) {
+                setupBluetooth();
+                connectToDevice(data, false);
+            }
+            break;
+        case REQUEST_ENABLE_BT:
+            // When the request to enable Bluetooth returns
+            if (resultCode == Activity.RESULT_OK) {
+                Toast.makeText(this, "Bluetooth is now enabled", Toast.LENGTH_SHORT).show();
+                // Bluetooth is now enabled, so set up a client session
+             //   setupClient();
+            } else {
+                // User did not enable Bluetooth or an error occurred
+                Log.d(TAG, "BT not enabled");
+                Toast.makeText(this, R.string.bt_not_enabled_leaving, Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
+    }
     //Android Lint suggests that Handlers should be static because memory leak might occur
     static class UiHandler extends Handler{
 

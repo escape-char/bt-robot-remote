@@ -47,7 +47,7 @@
         android:layout_below="@id/accel_stats"
         android:text=" gyroscope stats will appear here"/>
     <ToggleButton
-        android:id="@+id/status"
+        android:id="@+id/status_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/forward"
