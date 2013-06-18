@@ -17,14 +17,13 @@ import android.os.Bundle;
 //TODO: implement gravity and rotation sensors (is it more accurate?)
 public class MotionMonitor{
     private final String TAG = "Motion_Sensor";
-    
 
     //Motion Monitor States
     //STATE_MONITORING = MotionMonitor is listening to sensors via Monitor thread
     //STATE_IDLE = MotionMonitor is not doing anything, and is not listening to sensors
     //TODO = perhaps a STATE_LOGGING for logging data to a file or database?
-    private final int STATE_MONITORING = 1;
-    private final int STATE_IDLE = 0;
+    private static final int STATE_MONITORING = 1;
+    private static final int STATE_IDLE = 0;
     private int mState;
 
     //vectors for readings
@@ -46,6 +45,14 @@ public class MotionMonitor{
     //tells what activity to get sensor service from
     private final Context mContext;
         
+    //keys for accessing data into bundle
+    public static final String ACCEL_VECTOR  = "accel_vector"; //acceleration vector
+    public static final String ROTATE_VECTOR = "rotate_vector";//rotation vector
+
+    //constants for type of data to send to calling thread
+    public static  final int ACCEL_DATA = 0xFE;
+    public static  final int ROTATE_DATA = 0xFD ;
+
     /**
     *Constructor for Motion Monitor
     *@param context = activity to get sensors from
@@ -67,7 +74,7 @@ public class MotionMonitor{
         quaterRotation = new float [4];
         gyroTimeStamp = 0;
     }
-    public void start(){
+    public synchronized void start(){
         //cancel any previously running threads 
         if( mState == STATE_MONITORING || mMonitorThread != null){
             mState = STATE_IDLE;
@@ -78,11 +85,11 @@ public class MotionMonitor{
         mMonitorThread.start();
         mState=STATE_MONITORING;
     }
-    public void stop(){
+    public synchronized  void stop(){
         mState = STATE_IDLE;
         mMonitorThread = null;
     }
-    public int getState(){return mState;}
+    public synchronized int getState(){return mState;}
     /**
      *performs a high pass filter on given values. 
      *This ignores values with low reading, and keeps values with higher readings
@@ -166,14 +173,6 @@ public class MotionMonitor{
         //we aren't monitoring magnometer
         //but we need it for the getRotationMatrix
         private Sensor magSensor;
-
-        //keys for accessing data into bundle
-        private final String ACCEL_VECTOR  = "accel_vector"; //acceleration vector
-        private final String ROTATE_VECTOR = "rotate_vector";//rotation vector
-
-        //constants for type of data to send to calling thread
-        private final int ACCEL_DATA = 0xFE;
-        private final int ROTATE_DATA = 0xFD ;
 
         public SensorMonitorThread(Context context){
             mManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
