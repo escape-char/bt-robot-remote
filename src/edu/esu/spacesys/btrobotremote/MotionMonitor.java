@@ -1,5 +1,6 @@
 package edu.esu.spacesys.btrobotremote;
 import java.lang.Math;
+import java.lang.InterruptedException;
 import android.util.Log;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -46,12 +47,17 @@ public class MotionMonitor{
     private final Context mContext;
         
     //keys for accessing data into bundle
-    public static final String ACCEL_VECTOR  = "accel_vector"; //acceleration vector
-    public static final String ROTATE_VECTOR = "rotate_vector";//rotation vector
+    public static final String KEY_ACCEL  = "key_accel_vector"; //acceleration vector
+    public static final String KEY_ROTATE = "key_rotate_vector";//rotation vector
+
+
 
     //constants for type of data to send to calling thread
-    public static  final int ACCEL_DATA = 0xFE;
-    public static  final int ROTATE_DATA = 0xFD ;
+    public static  final int MESSAGE_MOTION = 0xFE;
+
+    //arguments with message
+    public static final int ARG_ACCEL = 0;
+    public static final int ARG_GYRO = 1;
 
     /**
     *Constructor for Motion Monitor
@@ -76,9 +82,8 @@ public class MotionMonitor{
     }
     public synchronized void start(){
         //cancel any previously running threads 
-        if( mState == STATE_MONITORING || mMonitorThread != null){
-            mState = STATE_IDLE;
-            mMonitorThread = null;
+        if( mState == STATE_MONITORING){
+            if(mMonitorThread != null)stop();
         }
         //start monitoring
         mMonitorThread = new SensorMonitorThread(mContext);
@@ -86,9 +91,21 @@ public class MotionMonitor{
         mState=STATE_MONITORING;
     }
     public synchronized  void stop(){
+        Log.i(TAG, "Stopping Motion Monitor..");
+        if(mMonitorThread == null){return;}
+        mMonitorThread.cancel();
+
+        //we need to use join method to interupt thread from whatever it is doing
+        try{
+            mMonitorThread.join();
+        }
+        catch(InterruptedException e){
+            Log.e(TAG, "Interupted monitor process from waiting");
+        }
         mState = STATE_IDLE;
         mMonitorThread = null;
     }
+    //gets the current state of sensor monitor
     public synchronized int getState(){return mState;}
     /**
      *performs a high pass filter on given values. 
@@ -169,6 +186,9 @@ public class MotionMonitor{
         //sensors to monitor
         private Sensor mAccelSensor;
         private Sensor mGyroSensor;
+
+        private volatile Looper mLoop;
+        private volatile boolean keepMonitoring = false;
         
         //we aren't monitoring magnometer
         //but we need it for the getRotationMatrix
@@ -180,40 +200,45 @@ public class MotionMonitor{
         }
         @Override
         public void run(){
-            Log.i(TAG, "running Sensor Monitor");
-            //Google's Documentation, as of 06/15/13,  on SensorManager indicates that getDefaultSensor will may include averages and
-            //exclude high readings. They recommend to use getSensorList for raw data. However, their source code indicates that
-            //all they do is get the first sensor in the sensor list; there is no filtering of readings
+            Log.i(TAG, "Sensor Monitor is running");
+
+            //Googe's documentation states that getDefaultSensor might do averages or filtering
+            //but their code does no such thing; it just returns first element in the sensor list
             //@see: https://github.com/android/platform_frameworks_base/blob/master/core/java/android/hardware/SensorManager.java
             //To save code, i'm using getDefaultSensor. 
             mAccelSensor = mManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             mGyroSensor = mManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 
-            //by default the registerListener method for Sensors listens on the main  UI thread
-            //we need to pass the listener the handler to this thread or else events will occur in th UI thread
-            Looper.prepare();
-                    Handler monitorHandler = new Handler();
-                    mManager.registerListener(this, mAccelSensor, SensorManager.SENSOR_DELAY_UI, monitorHandler);
-                    mManager.registerListener(this, mGyroSensor, SensorManager.SENSOR_DELAY_UI, monitorHandler);
-            Looper.loop();
+            Looper.prepare(); //prepare message queue
 
-            //keep going while mState is monitoring
-            //TODO there has to be a better way of keeping the thread alive
-            while(mState == STATE_MONITORING){}
+            //need to save looper to be able to call its quit method later
+            mLoop = Looper.myLooper(); 
+
+            //get handler for this thread
+            Handler monitorHandler = new Handler();
+
+            //register sensor listeners for this thread 
+            //note: have to pass handler to this thread, or else it will listen on main UI thread
+            mManager.registerListener(this, mAccelSensor, SensorManager.SENSOR_DELAY_UI, monitorHandler);
+            mManager.registerListener(this, mGyroSensor, SensorManager.SENSOR_DELAY_UI, monitorHandler);
+
+            Looper.loop(); //thread stays alive through this message loop
+            
+            Log.i(TAG, "Sensor Monitor thread successfully shutdown");
         }
        @Override
         //sensor events occur here
         public void onSensorChanged(SensorEvent event){
+            if(event == null){Log.e(TAG, "Sensor event is null");}
             //calculate acceleration through high pass filters
             if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
                 high_pass_filter(event.values);
                 
                 //send result back to handler
                   Bundle bundle = new Bundle(); 
-                  bundle.putFloatArray(ACCEL_VECTOR, accel);
-                  Message msg = Message.obtain(mHandler, ACCEL_DATA, bundle); 
+                  bundle.putFloatArray(KEY_ACCEL, accel);
+                  Message msg = mHandler.obtainMessage(MESSAGE_MOTION, ARG_ACCEL, -1,  bundle); 
                   mHandler.sendMessageDelayed(msg, 200);
-
             }
             //calculate rotation using the gyroscope
             else if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE){
@@ -221,13 +246,18 @@ public class MotionMonitor{
                 
                   //send result back to handler
                  Bundle bundle = new Bundle(); 
-                 bundle.putFloatArray(ROTATE_VECTOR, rotation);
-                  Message msg = Message.obtain(mHandler, ROTATE_DATA, bundle); 
+                 bundle.putFloatArray(KEY_ROTATE, rotation);
+                  Message msg = mHandler.obtainMessage(MESSAGE_MOTION, ARG_GYRO, -1, bundle); 
                   mHandler.sendMessageDelayed(msg, 200);
             }
             else{
                 //don't care
             }
+        }
+        public void cancel(){
+            Log.i(TAG, "attempting to cancel thread");
+            mManager.unregisterListener(this); //remember to unregister sensors
+            mLoop.quit(); //stops thread
         }
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy){
