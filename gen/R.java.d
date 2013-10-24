@@ -1,0 +1,23 @@
+/home/jordan/Projects/android-robot-remote/gen/edu/esu/spacesys/btrobotremote/R.java \
+ : /home/jordan/Projects/android-robot-remote/res/layout/main.xml \
+/home/jordan/Projects/android-robot-remote/res/layout/device_name.xml \
+/home/jordan/Projects/android-robot-remote/res/layout/device_list.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable-ldpi/ic_launcher.png \
+/home/jordan/Projects/android-robot-remote/res/menu/main_menu.xml \
+/home/jordan/Projects/android-robot-remote/res/values/colors.xml \
+/home/jordan/Projects/android-robot-remote/res/values/strings.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable-hdpi/ic_launcher.png \
+/home/jordan/Projects/android-robot-remote/res/drawable-xhdpi/ic_launcher.png \
+/home/jordan/Projects/android-robot-remote/res/drawable/connect_button.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable/nav_button.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable/select_connect.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable/on_nav_button.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable/select_nav.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable/disconnect_button.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable/connecting_button.xml \
+/home/jordan/Projects/android-robot-remote/res/drawable-mdpi/ic_launcher.png \
+/home/jordan/Projects/android-robot-remote/bin/res/drawable-ldpi/ic_launcher.png \
+/home/jordan/Projects/android-robot-remote/bin/res/drawable-hdpi/ic_launcher.png \
+/home/jordan/Projects/android-robot-remote/bin/res/drawable-xhdpi/ic_launcher.png \
+/home/jordan/Projects/android-robot-remote/bin/res/drawable-mdpi/ic_launcher.png \
+/home/jordan/Projects/android-robot-remote/bin/AndroidManifest.xml \

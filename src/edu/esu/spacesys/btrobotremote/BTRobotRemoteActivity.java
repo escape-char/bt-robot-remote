@@ -57,6 +57,21 @@ public class BTRobotRemoteActivity extends Activity
     private static final int REQUEST_CONNECT_DEVICE_INSECURE = 2;
     private static final int REQUEST_ENABLE_BT = 3;
 
+    //header for message
+    //every message must have this heaader
+    private int HEADER = 'H';
+
+    //message commands
+    private char MOVE = 'M';
+    private char  IR = 'I';
+    private char SONAR='S';
+
+    //parameters for move commands
+    private char LEFT='L';
+    private char RIGHT='R';
+    private char FORWARD='F';
+    private char BACKWARD='B';
+
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -92,7 +107,7 @@ public class BTRobotRemoteActivity extends Activity
     }
     public void setupBluetooth(){
         Log.d(TAG, "setupBluetooth()");
-        // Initialize the BluetoothChatService to perform bluetooth connections
+        // Initialize the BluetoothClient to perform bluetooth connections
         if(mClientService == null) mClientService = new BluetoothClientService(this, mHandler);
     }
 
@@ -102,9 +117,7 @@ public class BTRobotRemoteActivity extends Activity
     public void onResume(){
         Log.i(TAG, "-- ON RESUME --");
          super.onResume();
-         motionMonitor = new MotionMonitor(this, mHandler);
-         motionMonitor.start();
-        // If BT is not on, request that it be enabled.
+        // If BT is not on, request that it be enabled.false
         if (!mBluetoothAdapter.isEnabled()) {
             Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
@@ -140,6 +153,9 @@ public class BTRobotRemoteActivity extends Activity
         if(mClientService.getState() != BluetoothClientService.STATE_CONNECTED)
             return;
     }
+
+  //updates the oriention of the device based on data read from accelerometer
+  //this is what highlights the buttons based rotation of phone
   public  void updateOrientation(float [] data){
      if(data == null){Log.e(TAG, "Failed type message data to float []"); return;}
      if(data.length != 3){Log.e(TAG, "updateOrientation data must have length of 3");return;}
@@ -147,52 +163,93 @@ public class BTRobotRemoteActivity extends Activity
      float x = data[0];
      float  y = data[1];
      float  z = data[2];
+
+     //use this as the threshold for detecting direction
+     final float NEUTRAl = 0.01f;
+     final float THRESHOLD  = 0.10f;
+
+     //commands to send based on orientation
+     final String MOVE_FORWARD="HMF";
+     final String MOVE_BACKWARD="HMB";
+     final String MOVE_RIGHT="HMR";
+     final String MOVE_LEFT="HML";
+
      String msg = "Accelerometer[x, y, z]: " + String.format("%.4f, %.4f, %.4f\n", x, y, z);
      TextView stats = (TextView) findViewById(R.id.accel_stats);
      stats.setText(msg);
-                   
      //forward
-     if(y <= -0.15f) {findViewById(R.id.forward).setPressed(true);}
+     if(y <= -(THRESHOLD)) {
+         findViewById(R.id.forward).setPressed(true);
+         mClientService.write(MOVE_FORWARD.getBytes());
+     }
      else{findViewById(R.id.forward).setPressed(false);}
 
      //backward
-     if(y>=0.15f){findViewById(R.id.bottom).setPressed(true);}
+     if(y>=THRESHOLD){
+         findViewById(R.id.bottom).setPressed(true);
+         mClientService.write(MOVE_BACKWARD.getBytes());
+     }
      else{findViewById(R.id.bottom).setPressed(false);}
 
      //left
-     if(x >= 0.15f) {findViewById(R.id.left).setPressed(true);}
+     if(x >= THRESHOLD) {
+         findViewById(R.id.left).setPressed(true);
+         mClientService.write(MOVE_LEFT.getBytes());
+
+     }
      else{findViewById(R.id.left).setPressed(false);}
 
-    //left 
-     if(x<= -0.15f) {findViewById(R.id.right).setPressed(true);}
+     //right
+     if(x<= -(THRESHOLD)) {
+         findViewById(R.id.right).setPressed(true);
+         mClientService.write(MOVE_RIGHT.getBytes());
+     }
      else{findViewById(R.id.right).setPressed(false);}
   }
+  //sets the status for bluetooth connection
   public void setStatus(int status){
+    Log.d(TAG, "-- SET STATUS --");
     switch(status){
+        //connecting to remote device
         case BluetoothClientService.STATE_CONNECTING:{
                 Toast.makeText(this, "Connecting to remote bluetooth device...", Toast.LENGTH_SHORT).show();
+                ToggleButton statusButton  = (ToggleButton) this.findViewById(R.id.status_button);
+                statusButton.setBackgroundResource(R.drawable.connecting_button);
             break;
         }
+        //not connected
         case BluetoothClientService.STATE_NONE:{
-                Toast.makeText(this, "Lost Connect with remote bluetooth device...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Unable to connect to remote device", Toast.LENGTH_SHORT).show();
                 ToggleButton statusButton  = (ToggleButton) this.findViewById(R.id.status_button);
+                statusButton.setBackgroundResource(R.drawable.disconnect_button);
+                statusButton.setTextOff(getString(R.string.disconnected));
                 statusButton.setChecked(false);
             break;
         }
+        //established connection to remote device
         case BluetoothClientService.STATE_CONNECTED:{
                 Toast.makeText(this, "Connection established with remote bluetooth device...", Toast.LENGTH_SHORT).show();
                 ToggleButton statusButton  = (ToggleButton) this.findViewById(R.id.status_button);
+                statusButton.setBackgroundResource(R.drawable.connect_button);
+                statusButton.setTextOff(getString(R.string.connected));
                 statusButton.setChecked(true);
-            break;
+                //start motion monitor
+                 motionMonitor = new MotionMonitor(this, mHandler);
+                 motionMonitor.start();
+                break;
         }
     }
   }
   //this is called when status button is clicked
+  //the status button is the circle in the middle of the other buttons
   public void onStatusClicked(View view){
       Log.i(TAG, "-- ON STATUS CLICKED --");
       ToggleButton tb = (ToggleButton) view;
 
-      if(tb.isChecked()){
+      //let setStatus change the check status instead
+      tb.setChecked(false);
+
+      if(!tb.isChecked()){
          Log.i(TAG, "-- ON STATUS CHECKED --");
             // Launch the DeviceListActivity to see devices and do scan
             Intent serverIntent = new Intent(this, DeviceListActivity.class);
@@ -203,36 +260,48 @@ public class BTRobotRemoteActivity extends Activity
       }
 
   }    
+  //attempts a connection with remote device
+  //data = contains information about device (Mac address mostly)
    private void connectToDevice(Intent data, boolean secure){
+        Log.i(TAG, "-- connect to device --");
+        if(data == null){Log.e(TAG, "data is null");}
         // Get the device MAC address
         String address = data.getExtras()
             .getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
 
+        Log.i(TAG, "-- getting  to device --");
         // Get the BluetoothDevice object
         BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+
+        Log.i(TAG, "-- connecting to device  to device --");
         // Attempt to connect to the device
+        if(mClientService == null){Log.e(TAG, "bluetooth client service is null");}
         mClientService.connect(device, secure);
+        Log.i(TAG,"-- after connection function");
     }
     //this method is called once an activity has returned
-    //the activity must have been started with result first
+    //the activity must have been called with startActivityWithResult method first
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        
         Log.d(TAG, "onActivityResult " + resultCode);
         switch (requestCode) {
+        //for now, only dealiing with insecure connection
+        //i don't think its possible to have secure connections with a serial profile
         case REQUEST_CONNECT_DEVICE_INSECURE:
-            // When DeviceListActivity returns with a device to connect
-            if (resultCode == Activity.RESULT_OK) {
-                setupBluetooth();
-                connectToDevice(data, false);
-            }
+               if(resultCode == Activity.RESULT_OK){
+                   setupBluetooth();//since BT is enabled, setup client service
+                   connectToDevice(data, false);
+                }
+               else
+                    setStatus(BluetoothClientService.STATE_NONE);
             break;
         case REQUEST_ENABLE_BT:
             // When the request to enable Bluetooth returns
             if (resultCode == Activity.RESULT_OK) {
                 Toast.makeText(this, "Bluetooth is now enabled", Toast.LENGTH_SHORT).show();
-                // Bluetooth is now enabled, so set up a client session
-             //   setupClient();
-            } else {
+            }
+            else {
                 // User did not enable Bluetooth or an error occurred
                 Log.d(TAG, "BT not enabled");
                 Toast.makeText(this, R.string.bt_not_enabled_leaving, Toast.LENGTH_SHORT).show();
@@ -292,7 +361,6 @@ public class BTRobotRemoteActivity extends Activity
                 break;
             }
             //motion sensor
-            //TODO
             case MotionMonitor.MESSAGE_MOTION:{
                  if(msg.arg1 == MotionMonitor.ARG_ACCEL){
                      Bundle b = (Bundle) msg.obj;

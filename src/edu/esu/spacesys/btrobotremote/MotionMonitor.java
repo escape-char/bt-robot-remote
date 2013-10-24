@@ -11,6 +11,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Bundle;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 
 //Monitors the motion of an android device
 //uses the accelerometer and gyroscope to 
@@ -50,23 +52,25 @@ public class MotionMonitor{
     public static final String KEY_ACCEL  = "key_accel_vector"; //acceleration vector
     public static final String KEY_ROTATE = "key_rotate_vector";//rotation vector
 
-
-
-    //constants for type of data to send to calling thread
     public static  final int MESSAGE_MOTION = 0xFE;
 
     //arguments with message
     public static final int ARG_ACCEL = 0;
     public static final int ARG_GYRO = 1;
 
+    boolean keepLog = false;
+
+
+
     /**
     *Constructor for Motion Monitor
     *@param context = activity to get sensors from
     *@param handler = handler used to send sensor data to
     */
-    public MotionMonitor(Context context, Handler handler){
+    public MotionMonitor(Context context, Handler handler, boolean log){
         mHandler = handler;
         mContext = context;
+        keepLog = log;
 
         mMonitorThread = null;
 
@@ -193,10 +197,16 @@ public class MotionMonitor{
         //we aren't monitoring magnometer
         //but we need it for the getRotationMatrix
         private Sensor magSensor;
-
+        
+        //used for logging sensor stats
+         OutputStreamWriter gyroLog;
+         OutputStreamWriter accelLog;
         public SensorMonitorThread(Context context){
             mManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
             this.setName("SensorMonitorThread");
+            if(keepLog){
+                out = new OutputStreamWriter(openFileOutput("gyroLog.csv",0));
+            }
         }
         @Override
         public void run(){
@@ -238,7 +248,7 @@ public class MotionMonitor{
                   Bundle bundle = new Bundle(); 
                   bundle.putFloatArray(KEY_ACCEL, accel);
                   Message msg = mHandler.obtainMessage(MESSAGE_MOTION, ARG_ACCEL, -1,  bundle); 
-                  mHandler.sendMessageDelayed(msg, 200);
+                  mHandler.sendMessageDelayed(msg, 800);
             }
             //calculate rotation using the gyroscope
             else if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE){
@@ -247,6 +257,9 @@ public class MotionMonitor{
                   //send result back to handler
                  Bundle bundle = new Bundle(); 
                  bundle.putFloatArray(KEY_ROTATE, rotation);
+                 String result = String.format("%3f %3f %3f", rotation[0],rotation[1], rotation[2]);
+                 gyroLog.write(result);
+                 gyroLog.write.newLine();
                   Message msg = mHandler.obtainMessage(MESSAGE_MOTION, ARG_GYRO, -1, bundle); 
                   mHandler.sendMessageDelayed(msg, 200);
             }
